@@ -30,12 +30,12 @@ sections, crouch, boss, audio. Do not build these early.
 ## Module Map (planned — update as built)
 | Module | Files | Purpose | Status |
 |---|---|---|---|
-| board_config | include/board_config.h | pins, display driver, bus | blocked on HW |
-| config | include/config.h | all tunable gameplay constants | not started |
-| main | src/main.cpp | init + fixed-timestep loop | not started |
-| display | src/display.* | driver init, frame present | blocked on HW |
-| renderer | src/renderer.* | layer/sprite compositing | not started |
-| parallax | src/parallax.* | background layer scrolling | not started |
+| board_config | include/board_config.h | pins, display driver, bus | DONE (M0) |
+| config | include/config.h | all tunable gameplay constants | M1 render tunables done |
+| main | src/main.cpp | init + fixed-timestep loop | DONE (M1 loop + fps stats) |
+| display | src/display.* | driver init, frame present | DONE (M1) |
+| renderer | src/renderer.* | layer/sprite compositing | M1 band compositor done |
+| parallax | src/parallax.* | background layer scrolling | M1 placeholder layers done |
 | sprites | src/sprites.* | sprite structs, animation frames | not started |
 | input | src/input.* | touch zones → game actions | not started |
 | physics | src/physics.* | movement, gravity, collision (AABB) | not started |
@@ -58,7 +58,7 @@ sections, crouch, boss, audio. Do not build these early.
 
 ## Open Decisions
 1. ~~Board model~~ RESOLVED 2026-07-11: CrowPanel 4.3" Basic, S3 N4R2, RGB parallel, resistive touch.
-2. Graphics lib: LovyanGFX vs esp_lcd native. Decide at M0. (TFT_eSPI eliminated — no RGB support.)
+2. ~~Graphics lib~~ RESOLVED 2026-07-12: LovyanGFX (verified on hardware at M0). esp_lcd native remains fallback if M1 fps gate fails.
 3. PC emulator layer (Raylib wrapper, per reference article). Deferred; revisit if flash-test
    cycle exceeds ~2 min or after M1.
 4. Game concept/theme (user decision, needed before M2).

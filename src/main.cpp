@@ -1,118 +1,65 @@
-// main.cpp — M0 smoke test ONLY. No game code.
-// Init NV3047 RGB panel via LovyanGFX, cycle full-screen fills
-// (red/green/blue/white), report heap + PSRAM each cycle over serial.
-
+// main.cpp — M1: fixed-timestep loop, parallax + test sprites, fps measurement.
+// GO/NO-GO gate: sustained >= 30 fps with 3 layers + 10 sprites (PLANNING.md M1).
 #include <Arduino.h>
-#define LGFX_USE_V1
-#include <LovyanGFX.hpp>
-#include <lgfx/v1/platforms/esp32s3/Panel_RGB.hpp>
-#include <lgfx/v1/platforms/esp32s3/Bus_RGB.hpp>
-#include "board_config.h"
+#include "display.h"
+#include "parallax.h"
+#include "renderer.h"
+#include "config.h"
 
-// LGFX device config for CrowPanel 4.3" Basic, per Elecrow wiki reference.
-class LGFX_CrowPanel43 : public lgfx::LGFX_Device {
-  lgfx::Bus_RGB     _bus;
-  lgfx::Panel_RGB   _panel;
-  lgfx::Light_PWM   _light;
+static const float UPDATE_DT = 1.0f / UPDATE_HZ;
 
-public:
-  LGFX_CrowPanel43() {
-    {
-      auto cfg = _panel.config();
-      cfg.memory_width  = LCD_WIDTH;
-      cfg.memory_height = LCD_HEIGHT;
-      cfg.panel_width   = LCD_WIDTH;
-      cfg.panel_height  = LCD_HEIGHT;
-      cfg.offset_x = 0;
-      cfg.offset_y = 0;
-      _panel.config(cfg);
-    }
-    {
-      auto cfg = _bus.config();
-      cfg.panel = &_panel;
-
-      cfg.pin_d0  = LCD_PIN_B0;  cfg.pin_d1  = LCD_PIN_B1;
-      cfg.pin_d2  = LCD_PIN_B2;  cfg.pin_d3  = LCD_PIN_B3;
-      cfg.pin_d4  = LCD_PIN_B4;
-      cfg.pin_d5  = LCD_PIN_G0;  cfg.pin_d6  = LCD_PIN_G1;
-      cfg.pin_d7  = LCD_PIN_G2;  cfg.pin_d8  = LCD_PIN_G3;
-      cfg.pin_d9  = LCD_PIN_G4;  cfg.pin_d10 = LCD_PIN_G5;
-      cfg.pin_d11 = LCD_PIN_R0;  cfg.pin_d12 = LCD_PIN_R1;
-      cfg.pin_d13 = LCD_PIN_R2;  cfg.pin_d14 = LCD_PIN_R3;
-      cfg.pin_d15 = LCD_PIN_R4;
-
-      cfg.pin_henable = LCD_PIN_DE;
-      cfg.pin_vsync   = LCD_PIN_VSYNC;
-      cfg.pin_hsync   = LCD_PIN_HSYNC;
-      cfg.pin_pclk    = LCD_PIN_PCLK;
-      cfg.freq_write  = LCD_PCLK_HZ;
-
-      cfg.hsync_polarity    = LCD_HSYNC_POLARITY;
-      cfg.hsync_front_porch = LCD_HSYNC_FRONT_PORCH;
-      cfg.hsync_pulse_width = LCD_HSYNC_PULSE_WIDTH;
-      cfg.hsync_back_porch  = LCD_HSYNC_BACK_PORCH;
-      cfg.vsync_polarity    = LCD_VSYNC_POLARITY;
-      cfg.vsync_front_porch = LCD_VSYNC_FRONT_PORCH;
-      cfg.vsync_pulse_width = LCD_VSYNC_PULSE_WIDTH;
-      cfg.vsync_back_porch  = LCD_VSYNC_BACK_PORCH;
-      cfg.pclk_active_neg   = LCD_PCLK_ACTIVE_NEG;
-      cfg.de_idle_high      = LCD_DE_IDLE_HIGH;
-      cfg.pclk_idle_high    = LCD_PCLK_IDLE_HIGH;
-
-      _bus.config(cfg);
-      _panel.setBus(&_bus);
-    }
-    {
-      auto cfg = _light.config();
-      cfg.pin_bl = LCD_PIN_BL;
-      _light.config(cfg);
-      _panel.light(&_light);
-    }
-    setPanel(&_panel);
-  }
-};
-
-static LGFX_CrowPanel43 lcd;
-
-static void printMemory(const char* tag) {
-  Serial.printf("[%s] heap free: %u bytes | PSRAM total: %u | PSRAM free: %u\n",
-                tag,
-                (unsigned)ESP.getFreeHeap(),
-                (unsigned)ESP.getPsramSize(),
-                (unsigned)ESP.getFreePsram());
-}
+// --- fps instrumentation ---
+static uint32_t s_frames = 0;
+static uint32_t s_statT0 = 0;
+static uint32_t s_frameMsMin = 0xFFFFFFFF, s_frameMsMax = 0, s_frameMsSum = 0;
 
 void setup() {
   Serial.begin(115200);
   delay(500);
-  Serial.println("\n=== Cave Escape M0 smoke test ===");
-  printMemory("pre-init");
+  Serial.println("\n=== Cave Escape M1 render skeleton ===");
 
-  if (!lcd.init()) {
-    Serial.println("FATAL: lcd.init() failed");
-  }
-  lcd.setBrightness(255);
-  printMemory("post-init");
+  if (!display::init())  { Serial.println("FATAL: display init failed");  for(;;) delay(1000); }
+  if (!parallax::init()) { Serial.println("FATAL: parallax init failed (PSRAM alloc?)"); for(;;) delay(1000); }
+  if (!renderer::init()) { Serial.println("FATAL: renderer init failed (SRAM alloc?)");  for(;;) delay(1000); }
 
-  // Sanity check: PSRAM must be present (framebuffer lives there).
-  if (ESP.getPsramSize() == 0) {
-    Serial.println("WARNING: PSRAM not detected — check memory_type=qio_qspi");
-  }
+  Serial.printf("post-init heap free: %u | PSRAM free: %u\n",
+                (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getFreePsram());
+  s_statT0 = millis();
 }
 
 void loop() {
-  struct { uint16_t color; const char* name; } fills[] = {
-    { TFT_RED,   "RED"   },
-    { TFT_GREEN, "GREEN" },
-    { TFT_BLUE,  "BLUE"  },
-    { TFT_WHITE, "WHITE" },
-  };
-  for (auto& f : fills) {
-    uint32_t t0 = millis();
-    lcd.fillScreen(f.color);
-    uint32_t dt = millis() - t0;
-    Serial.printf("fill %-5s took %lu ms | ", f.name, (unsigned long)dt);
-    printMemory("loop");
-    delay(1000);
+  // Fixed-timestep update, render as fast as possible (CLAUDE.md rule 4).
+  static uint32_t lastUs = micros();
+  static float acc = 0.0f;
+
+  uint32_t nowUs = micros();
+  acc += (nowUs - lastUs) / 1000000.0f;
+  lastUs = nowUs;
+  if (acc > 0.25f) acc = 0.25f;            // clamp after stalls (e.g. serial)
+
+  while (acc >= UPDATE_DT) {
+    parallax::update(UPDATE_DT);
+    renderer::update(UPDATE_DT);
+    acc -= UPDATE_DT;
+  }
+
+  uint32_t t0 = millis();
+  renderer::renderFrame();
+  uint32_t dt = millis() - t0;
+
+  ++s_frames;
+  s_frameMsSum += dt;
+  if (dt < s_frameMsMin) s_frameMsMin = dt;
+  if (dt > s_frameMsMax) s_frameMsMax = dt;
+
+  uint32_t now = millis();
+  if (now - s_statT0 >= 1000) {
+    float fps = s_frames * 1000.0f / (now - s_statT0);
+    Serial.printf("fps: %.1f | render ms avg %.1f min %lu max %lu | heap %u\n",
+                  fps, s_frames ? (float)s_frameMsSum / s_frames : 0.0f,
+                  (unsigned long)s_frameMsMin, (unsigned long)s_frameMsMax,
+                  (unsigned)ESP.getFreeHeap());
+    s_frames = 0; s_frameMsSum = 0; s_frameMsMin = 0xFFFFFFFF; s_frameMsMax = 0;
+    s_statT0 = now;
   }
 }

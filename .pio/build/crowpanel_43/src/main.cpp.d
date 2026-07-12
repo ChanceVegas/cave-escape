@@ -177,7 +177,7 @@
  /Users/nht_test2/.platformio/packages/framework-arduinoespressif32@3.20014.231204/tools/sdk/esp32s3/include/esp_hw_support/include/soc/esp32/spiram.h \
  /Users/nht_test2/.platformio/packages/framework-arduinoespressif32@3.20014.231204/cores/esp32/io_pin_remap.h \
  /Users/nht_test2/.platformio/packages/framework-arduinoespressif32@3.20014.231204/cores/esp32/Arduino.h \
- .pio/libdeps/crowpanel_43/LovyanGFX/src/LovyanGFX.hpp \
+ src/display.h .pio/libdeps/crowpanel_43/LovyanGFX/src/LovyanGFX.hpp \
  .pio/libdeps/crowpanel_43/LovyanGFX/src/lgfx/v1_init.hpp \
  .pio/libdeps/crowpanel_43/LovyanGFX/src/lgfx/v1/gitTagVersion.h \
  .pio/libdeps/crowpanel_43/LovyanGFX/src/lgfx/v1/platforms/device.hpp \
@@ -305,4 +305,4 @@
  /Users/nht_test2/.platformio/packages/framework-arduinoespressif32@3.20014.231204/tools/sdk/esp32s3/include/esp_lcd/include/esp_lcd_panel_vendor.h \
  /Users/nht_test2/.platformio/packages/framework-arduinoespressif32@3.20014.231204/tools/sdk/esp32s3/include/esp_lcd/include/esp_lcd_panel_ops.h \
  /Users/nht_test2/.platformio/packages/framework-arduinoespressif32@3.20014.231204/tools/sdk/esp32s3/include/esp_lcd/interface/esp_lcd_panel_interface.h \
- include/board_config.h
+ src/parallax.h src/renderer.h src/config.h
