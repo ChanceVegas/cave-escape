@@ -5,6 +5,15 @@
 #include "parallax.h"
 #include "renderer.h"
 #include "config.h"
+#include "board_config.h"
+
+// Exact panel refresh period, derived from pclk + timings (same crystal as
+// micros(), so locking render to this period phase-locks us to scanout and
+// kills the ~2 Hz render-vs-refresh beat). 535*296 clks @4MHz = 39590 us.
+static const uint32_t FRAME_US =
+    (uint64_t)(LCD_WIDTH  + LCD_HSYNC_FRONT_PORCH + LCD_HSYNC_PULSE_WIDTH + LCD_HSYNC_BACK_PORCH) *
+    (LCD_HEIGHT + LCD_VSYNC_FRONT_PORCH + LCD_VSYNC_PULSE_WIDTH + LCD_VSYNC_BACK_PORCH) *
+    1000000ULL / LCD_PCLK_HZ;
 
 static const float UPDATE_DT = 1.0f / UPDATE_HZ;
 
@@ -16,7 +25,7 @@ static uint32_t s_frameMsMin = 0xFFFFFFFF, s_frameMsMax = 0, s_frameMsSum = 0;
 void setup() {
   Serial.begin(115200);
   delay(500);
-  Serial.println("\n=== Cave Escape M1 render skeleton ===");
+  Serial.println("\n=== Cave Escape M1 ===");
 
   if (!display::init())  { Serial.println("FATAL: display init failed");  for(;;) delay(1000); }
   if (!parallax::init()) { Serial.println("FATAL: parallax init failed (PSRAM alloc?)"); for(;;) delay(1000); }
@@ -43,8 +52,17 @@ void loop() {
     acc -= UPDATE_DT;
   }
 
+  // Frame limiter: lock render cadence to the panel refresh period.
+  static uint32_t s_nextFrameUs = micros();
+  int32_t wait = (int32_t)(s_nextFrameUs - micros());
+  if (wait > 2000) delayMicroseconds(wait - 1000);       // coarse sleep
+  while ((int32_t)(s_nextFrameUs - micros()) > 0) {}     // fine spin
+  s_nextFrameUs += FRAME_US;
+  if ((int32_t)(micros() - s_nextFrameUs) > (int32_t)FRAME_US)
+    s_nextFrameUs = micros() + FRAME_US;                 // resync after a stall
+
   uint32_t t0 = millis();
-  renderer::renderFrame();
+  renderer::renderFrame(acc / UPDATE_DT);  // alpha: fraction of a tick elapsed
   uint32_t dt = millis() - t0;
 
   ++s_frames;

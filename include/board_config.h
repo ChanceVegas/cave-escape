@@ -39,10 +39,10 @@
 #define LCD_PIN_BL      2   // backlight (PWM-capable)
 
 // ---------------- NV3047 panel timings (from Elecrow wiki) ----------------
-#define LCD_PCLK_HZ           5000000  // M1 bandwidth experiment — was 8000000 (wiki value).
-                                       // Lower pclk = slower panel scan = more PSRAM
-                                       // bandwidth left for compose/push. Revert to
-                                       // 8000000 if the panel flickers or won't sync.
+#define LCD_PCLK_HZ           4000000  // M1 experiment A — was 5000000, orig 8000000 (wiki).
+                                       // Lower pclk = slower panel scan = more shared-bus
+                                       // bandwidth for compose/push. ~25 Hz refresh at 4 MHz:
+                                       // WATCH FOR FLICKER. Revert upward if panel degrades.
 #define LCD_HSYNC_POLARITY    0
 #define LCD_HSYNC_FRONT_PORCH 8
 #define LCD_HSYNC_PULSE_WIDTH 4

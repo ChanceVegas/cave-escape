@@ -4,7 +4,10 @@
 #pragma once
 
 // --- Frame timing ---
-#define TARGET_FPS          30      // fps; GO/NO-GO gate at M1
+#define TARGET_FPS          25      // fps floor; revised at M1 close (was 30).
+                                    // Measured 27.2 with render skeleton; game logic
+                                    // shares core 1 with compose, expect ~25 at M3.
+                                    // If M3 dips below floor: RLE-span compositor (PLANNING).
 #define UPDATE_HZ           60      // Hz; fixed-timestep logic rate, decoupled from render
 
 // --- Band compositor ---

@@ -22,8 +22,6 @@ struct BandMsg { uint8_t idx; int16_t y; };
 QueueHandle_t s_qFree  = nullptr;      // buffer indices ready for compose
 QueueHandle_t s_qReady = nullptr;      // composed bands awaiting push
 
-volatile uint32_t s_usPushAcc = 0;     // push-task time accumulator (core 0)
-
 struct TestSprite { float x, y, vx, vy; };
 TestSprite s_sprites[TEST_SPRITE_COUNT];
 
@@ -37,9 +35,7 @@ void pushTask(void*) {
   BandMsg m;
   for (;;) {
     xQueueReceive(s_qReady, &m, portMAX_DELAY);
-    uint32_t t0 = micros();
     s_bands[m.idx].pushSprite(&lcd, 0, m.y);
-    s_usPushAcc += micros() - t0;
     uint8_t idx = m.idx;
     xQueueSend(s_qFree, &idx, portMAX_DELAY);
   }
@@ -94,32 +90,21 @@ void update(float dt) {
   }
 }
 
-void renderFrame() {
-  // TEMP M1 instrumentation: compose (incl. sprites) on core 1 vs push on core 0.
-  static uint32_t usCompose = 0, frames = 0;
+void renderFrame(float alpha) {
+  parallax::beginRender(alpha);
 
   for (int32_t bandY = 0; bandY < LCD_HEIGHT; bandY += BAND_HEIGHT) {
     uint8_t idx;
     xQueueReceive(s_qFree, &idx, portMAX_DELAY);     // wait for a free buffer
 
-    uint32_t t0 = micros();
     parallax::composeBand(s_bands[idx], bandY);
     for (const auto& s : s_sprites) {
       int32_t sy = (int32_t)s.y;
       if (sy + TEST_SPRITE_SIZE <= bandY || sy >= bandY + BAND_HEIGHT) continue;
       s_tex.pushSprite(&s_bands[idx], (int32_t)s.x, sy - bandY, COLOR_TRANSPARENT);
     }
-    usCompose += micros() - t0;
-
     BandMsg m{idx, (int16_t)bandY};
     xQueueSend(s_qReady, &m, portMAX_DELAY);         // hand off to core 0
-  }
-
-  if (++frames >= 120) {
-    uint32_t pushUs = s_usPushAcc; s_usPushAcc = 0;
-    Serial.printf("stage ms/frame: compose %.1f | push %.1f (parallel)\n",
-                  usCompose / 1000.0f / frames, pushUs / 1000.0f / frames);
-    usCompose = 0; frames = 0;
   }
 }
 

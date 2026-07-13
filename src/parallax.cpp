@@ -10,7 +10,9 @@
 
 namespace {
 
-float s_worldX = 0.0f;
+float s_worldX = 0.0f;   // logic position (updates at UPDATE_HZ)
+float s_prevX  = 0.0f;   // logic position one tick ago
+float s_renderX = 0.0f;  // interpolated position used by composeBand
 
 // Palette copies in internal SRAM (flash palette reads would hit cache anyway,
 // but SRAM LUTs make the inner loop unconditional-fast).
@@ -40,7 +42,7 @@ inline void layerRow(uint16_t* dst, const uint8_t* rowBase, const uint16_t* pal,
 }
 
 inline int32_t layerOffset(float mult) {
-  int32_t off = (int32_t)(s_worldX * mult) % GEN_LAYER_W;
+  int32_t off = (int32_t)(s_renderX * mult) % GEN_LAYER_W;
   return off < 0 ? off + GEN_LAYER_W : off;
 }
 
@@ -55,7 +57,16 @@ bool init() {
   return true;
 }
 
-void update(float dt) { s_worldX += SCROLL_SPEED_PX_S * dt; }
+void update(float dt) {
+  s_prevX = s_worldX;
+  s_worldX += SCROLL_SPEED_PX_S * dt;
+}
+
+void beginRender(float alpha) {
+  if (alpha < 0.0f) alpha = 0.0f;
+  if (alpha > 1.0f) alpha = 1.0f;
+  s_renderX = s_prevX + (s_worldX - s_prevX) * alpha;
+}
 
 void composeBand(lgfx::LGFX_Sprite& band, int32_t bandY) {
   uint16_t* buf = (uint16_t*)band.getBuffer();
