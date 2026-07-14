@@ -3,33 +3,39 @@
 Every session: read this first, update it last. If it isn't logged here, the next session doesn't know it happened.
 
 ## Current State
-- Phase: M3a CODE DONE (2026-07-14) — camera scroll on branch m3-world; NOT yet
-  compiled or hw-verified (session container could not reach PlatformIO registry).
-- Builds: UNVERIFIED for M3a — first `pio run` on target machine is the compile gate.
-  (M2 close on main: builds yes, espressif32@6.5.0.)
-- Runs on hardware: M2 tip yes; M3a pending.
-- Measured FPS: 25.3 locked; render avg 34.5 ms (M2b). M3a adds ~zero compose cost
-  (few float ops + off-screen rect skip) — verify, don't assume.
-- Heap: stable at 291,184 at M2 (no-alloc rule holding)
+- Phase: M3a HW-VERIFIED ✅ (2026-07-14, tag M3A-R1, branch m3-world)
+- Builds: yes (espressif32@6.5.0; RAM 6.7%, Flash 60.7%)
+- Runs on hardware: yes — camera ratchet follow, world-space collision, camera-driven parallax
+- Measured FPS: 25.2–25.3 locked; render avg 34.5 ms (M3a compose cost ~0 vs M2b, verified)
+- Heap: flat at 291,176 across extended run (no-alloc rule holding)
 
 ## Next Up (in order)
-1. M3a hardware verify (protocol per CLAUDE.md rule 8, xfer-tag M3A-R1): build,
-   flash, then test — camera follows at CAM_ANCHOR_X=160, back-edge clamp works,
-   scroll judder-free, parallax tracks camera, pits 60/70/80 px (FEEL-1 data:
-   which are clearable?), ledges A/B reachable, pit respawn lands safely ahead
-   of camera, fps ≥ 25 / render ≤ ~35 ms / heap flat.
-2. M3b — chunk system (scope in PLANNING.md M3 breakdown).
-3. M3c — static spikes. (M3d creature = stretch, may slip to M4.)
+1. M3b — chunk system (scope in PLANNING.md M3 breakdown). Design constraint
+   from FEEL-2: wide pits (≥70 px) need run-up room; don't place them right
+   after checkpoints or speed-killing obstacles.
+2. M3c — static spikes. (M3d creature = stretch, may slip to M4.)
+3. INPUT-4 (user-approved design, build BETWEEN M3b and M3c): fixed visible
+   stick, bottom-left — translucent base circle + thumb-offset dot, overlaid
+   on full 272 px playfield (no reserved strip; viewport unchanged, chunk
+   authoring unaffected). Jump = POSITION-based (push up past threshold),
+   edge-triggered (must recross below threshold to re-arm — no auto-rejump).
+   Replaces velocity flick. Touches OUTSIDE the stick zone do NOTHING
+   (user decision; touch-anywhere rejected — one-line revert if corner
+   occlusion annoys). Menu button deferred to M4 (no dead UI).
+   Prereq experiment during M3b testing: does flick-jump fail specifically
+   while dragging (diagonal), work from standstill? Confirms the diagnosis.
 
 ## Known Issues / Risks
-- M3A-1 (open, temporary): pit respawn = camera.x + PLAYER_SPAWN_X with NO terrain
+- M3A-1 (open, temporary — hw test 07-14 showed no bad respawns incl. pit 3): pit respawn = camera.x + PLAYER_SPAWN_X with NO terrain
   check — could theoretically respawn over a pit (not with current test terrain:
   respawn point is always ≥130 px behind any pit the player can die in). Proper
   checkpoint respawn arrives at M3b; do not band-aid this.
-- BUILD-1 (open, this session): container couldn't reach PlatformIO registry
-  (api.registry.platformio.org / dl.platformio.org not in network allowlist).
-  M3a committed compile-UNVERIFIED on branch. User may allowlist those domains
-  for future sessions.
+- BUILD-1 (RESOLVED 2026-07-14): user allowlisted PlatformIO registry domains;
+  container `pio run` now works. M3a compiled in-container before hw test.
+- FEEL-2 (open, M3b design input): with run-up, ALL pits 60/70/80 px cleared
+  without issue (M3A-R1) — vs 60 px "tight" at M2b from a short floor. Effective
+  clearance is speed-dependent; ~86 px ceiling assumes full run-up. Chunk
+  authoring rule: wide pits require preceding flat run-up.
 - FEEL-1 (open, M3 design input): 60 px test pit was clearable but tight. Causes to
   separate at M3: constants tuning vs ~40 ms worst-case flick latency (25 Hz touch
   sampling, INPUT-2). Do NOT tune jump constants against throwaway terrain.
@@ -62,6 +68,29 @@ Every session: read this first, update it last. If it isn't logged here, the nex
 - 2026-07-11: endless chunk structure; "Cave Escape" concept; single-touch drag joystick; PlatformIO+Arduino+C++; 3-doc system; PC emulator deferred.
 
 ## Session Log (newest first)
+### 2026-07-14 — Session 6 (M3a verification: gates passed)
+- Repo forensics: m3-world existed on remote but at main's tip — Session 5 patch
+  was never applied (git am step missed). Patch re-applied; renderer.cpp hunk was
+  corrupted in transit and reconstructed from hunk header counts (verified by build).
+- BUILD-1 closed: registry allowlist works; `pio run` SUCCESS in container.
+- Stale-flash incident: device showed M2b-r1 banner → traced to the un-applied
+  patch, not a flash failure. Transfer/verify protocol caught it as designed.
+- M3a HW-VERIFIED (M3A-R1): camera follow smooth, ratchet holds, ledges A/B
+  reachable, respawn correct (incl. pit 3 / M3A-1 scenario), fps 25.2–25.3,
+  render 34.5 ms, heap flat 291,176.
+- FEEL-2 opened: all pits (60/70/80) clearable WITH run-up; clearance is
+  speed-dependent. M3b chunk-authoring constraint recorded.
+- User requested on-screen joypad → multi-zone rejected (single-touch panel).
+  Root complaint: jump-while-moving unreliable = diagonal flick at 25 Hz
+  sampling (INPUT-2 territory). Design agreed → INPUT-4 (see Next Up):
+  fixed visible stick + position-based jump, overlay (no viewport shrink).
+  Reserved-strip variant considered and dropped (would force re-authoring
+  terrain Y for 208 px playfield before M3b).
+- M3A-1 addendum: repeated falls off world's end (x>1680, not a real pit) —
+  respawn always landed on floor, NO death loop. Terrain-edge "impossible pit"
+  is expected throwaway-terrain behavior; resolves at M3b.
+- Commit: docs(m3a): hw verification, close BUILD-1, open FEEL-2, spec INPUT-4
+
 ### 2026-07-14 — Session 5 (M3 breakdown + M3a: camera scroll)
 - M3 broken into M3a/b/c(+d stretch) — user approved; user ruled pits COUNT as one
   of the 2 hazard types → M3 hazard scope = pits + static spikes; creature = stretch.
