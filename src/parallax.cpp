@@ -7,12 +7,11 @@
 #include "config.h"
 #include "board_config.h"
 #include "gen_layers.h"
+#include "camera.h"
 
 namespace {
 
-float s_worldX = 0.0f;   // logic position (updates at UPDATE_HZ)
-float s_prevX  = 0.0f;   // logic position one tick ago
-float s_renderX = 0.0f;  // interpolated position used by composeBand
+float s_renderX = 0.0f;  // camera-derived scroll position used by composeBand
 
 // Palette copies in internal SRAM (flash palette reads would hit cache anyway,
 // but SRAM LUTs make the inner loop unconditional-fast).
@@ -57,15 +56,10 @@ bool init() {
   return true;
 }
 
-void update(float dt) {
-  s_prevX = s_worldX;
-  s_worldX += SCROLL_SPEED_PX_S * dt;
-}
-
-void beginRender(float alpha) {
-  if (alpha < 0.0f) alpha = 0.0f;
-  if (alpha > 1.0f) alpha = 1.0f;
-  s_renderX = s_prevX + (s_worldX - s_prevX) * alpha;
+void beginRender(float) {
+  // Camera already interpolated its own prev/curr with this frame's alpha;
+  // multipliers are applied per layer in layerOffset.
+  s_renderX = camera::drawX();
 }
 
 void composeBand(lgfx::LGFX_Sprite& band, int32_t bandY) {
@@ -87,7 +81,5 @@ void composeBand(lgfx::LGFX_Sprite& band, int32_t bandY) {
     if (near_rowflag[y]) layerRow<true>(dst, rowNear, s_palNear, offNear);
   }
 }
-
-float worldX() { return s_worldX; }
 
 } // namespace parallax

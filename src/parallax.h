@@ -5,14 +5,12 @@
 #include "display.h"
 
 namespace parallax {
-bool init();                       // pre-render layer tiles into PSRAM (once, at boot)
-void update(float dt);             // advance scroll offsets; dt in seconds
-// Set interpolated render position for this frame: alpha in [0,1) is the
-// fraction of an update tick elapsed. Fixes 60 Hz-update/~27 fps-render beat
-// (visible scroll jerk on fast layers).
+bool init();                       // copy palettes to SRAM (layers live in flash)
+// Latch this frame's scroll position from camera::drawX() (M3a: parallax is
+// camera-driven; the M1 self-scroll is gone). camera::beginRender MUST have
+// run first this frame.
 void beginRender(float alpha);
 // Draw all layers (back to front) into a band canvas covering
 // screen rows [bandY, bandY + band.height).
 void composeBand(lgfx::LGFX_Sprite& band, int32_t bandY);
-float worldX();                    // current world scroll position, px
 }

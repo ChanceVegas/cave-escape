@@ -5,6 +5,7 @@
 #include "renderer.h"
 #include "display.h"
 #include "parallax.h"
+#include "camera.h"
 #include "entities.h"
 #include "config.h"
 #include "board_config.h"
@@ -57,8 +58,9 @@ bool init() {
 }
 
 void renderFrame(float alpha) {
+  camera::beginRender(alpha);     // FIRST — parallax + entities read camera::drawX
   parallax::beginRender(alpha);
-  entities::beginRender(alpha);   // latch interpolated player position (M2b)
+  entities::beginRender(alpha);
 
   for (int32_t bandY = 0; bandY < LCD_HEIGHT; bandY += BAND_HEIGHT) {
     uint8_t idx;

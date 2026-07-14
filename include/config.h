@@ -16,9 +16,13 @@
 // more SRAM (480 * BAND_HEIGHT * 2 bytes; 34 px = 32,640 B).
 #define BAND_HEIGHT         34
 
-// --- Parallax ---
+// --- Camera (M3a) ---
+#define CAM_ANCHOR_X        160.0f  // px; player's screen X when pushing forward
+                                    // (1/3 from left = 320 px of forward sight line;
+                                    // more anchor = more reaction time for hazards)
+
+// --- Parallax (camera-driven since M3a; M1 auto-scroll SCROLL_SPEED removed) ---
 #define LAYER_TILE_W        512     // px; tileable width of each pre-rendered layer
-#define SCROLL_SPEED_PX_S   120.0f  // px/sec world scroll; brisk auto-run feel
 #define PAR_FAR_MULT        0.25f   // far cave wall scrolls slowest
 #define PAR_MID_MULT        0.50f   // mid rock formations
 #define PAR_NEAR_MULT       1.00f   // foreground floor = world speed

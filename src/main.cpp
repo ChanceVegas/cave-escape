@@ -1,6 +1,6 @@
-// main.cpp — M2b: fixed-timestep loop + player physics test harness.
-// Terrain below is throwaway: floor with one pit + one ledge, sized to verify
-// jump apex (~50 px) clears the 32 px ledge and pit-fall triggers respawn.
+// main.cpp — M3a: fixed-timestep loop + camera-scroll test harness.
+// Terrain below is throwaway (deleted at M3b): ~3.5 screens of floor with pits
+// and ledges to verify camera follow, back-edge clamp, and scrolling collision.
 #include <Arduino.h>
 #include "display.h"
 #include "parallax.h"
@@ -8,6 +8,7 @@
 #include "input.h"
 #include "physics.h"
 #include "entities.h"
+#include "camera.h"
 #include "config.h"
 #include "board_config.h"
 
@@ -21,17 +22,17 @@ static const uint32_t FRAME_US =
 
 static const float UPDATE_DT = 1.0f / UPDATE_HZ;
 
-// --- M2b test terrain (world = screen space; camera fixed until M3) ---
-// Floor at y=240 split by a 60 px pit; one ledge the jump must clear.
+// --- M3a test terrain (WORLD space, ~3.5 screens = 1680 px; throwaway) ---
+// Pit widths honor FEEL-1: max clearance ~92 px minus latency margin → ≤86 px;
+// widest here is 80 (stretch) after a 60 (warm-up). Reachable 40 px ledges.
 static const physics::AABB TEST_SOLIDS[] = {
-  {   0, 240, 200, 32 },   // floor, left of pit
-  { 260, 240, 220, 32 },   // floor, right of pit (pit = x 200..260)
-  { 320, 184,  80, 16 },   // ledge: top at 184, 56 px above floor top... see note
+  {    0, 240,  400, 32 },   // start floor
+  {  460, 240,  340, 32 },   // pit 1: x 400..460 (60 px, M2b-verified width)
+  {  560, 200,   96, 16 },   // ledge A: 40 px step up, reachable (apex 50 px)
+  {  870, 240,  410, 32 },   // pit 2: x 800..870 (70 px — FEEL-1 data point)
+  { 1360, 240,  320, 32 },   // pit 3: x 1280..1360 (80 px), then final floor
+  { 1420, 200,   96, 16 },   // ledge B on final floor
 };
-// NOTE: ledge top y=184 puts its surface 56 px above the floor — ABOVE the 50 px
-// jump apex, intentionally: reach it by jumping from the right floor edge is
-// impossible; it exists to test head-bonk (rising collision) from below and
-// landing from a fall. If we want it reachable, change y to 200 (40 px step).
 
 // --- fps instrumentation ---
 static uint32_t s_frames = 0;
@@ -41,13 +42,14 @@ static uint32_t s_frameMsMin = 0xFFFFFFFF, s_frameMsMax = 0, s_frameMsSum = 0;
 void setup() {
   Serial.begin(115200);
   delay(500);
-  Serial.println("\n=== Cave Escape M2b-r1 ===");
+  Serial.println("\n=== Cave Escape M3A-R1 ===");
 
   if (!display::init())  { Serial.println("FATAL: display init failed");  for(;;) delay(1000); }
   if (!parallax::init()) { Serial.println("FATAL: parallax init failed (PSRAM alloc?)"); for(;;) delay(1000); }
   if (!renderer::init()) { Serial.println("FATAL: renderer init failed (SRAM alloc?)");  for(;;) delay(1000); }
   if (!input::init())    { Serial.println("FATAL: input init failed"); for(;;) delay(1000); }
   physics::setSolids(TEST_SOLIDS, sizeof(TEST_SOLIDS) / sizeof(TEST_SOLIDS[0]));
+  if (!camera::init())   { Serial.println("FATAL: camera init failed"); for(;;) delay(1000); }
   if (!entities::init()) { Serial.println("FATAL: entities init failed"); for(;;) delay(1000); }
 
   Serial.printf("post-init heap free: %u | PSRAM free: %u\n",
@@ -67,8 +69,8 @@ void loop() {
 
   while (acc >= UPDATE_DT) {
     input::update(UPDATE_DT);
-    parallax::update(UPDATE_DT);
     entities::update(UPDATE_DT);   // consumes input::state(); order matters
+    camera::update(UPDATE_DT);     // AFTER entities — follows this tick's player
     acc -= UPDATE_DT;
   }
 

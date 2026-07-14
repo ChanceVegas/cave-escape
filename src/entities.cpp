@@ -4,6 +4,7 @@
 #include "input.h"
 #include "config.h"
 #include "board_config.h"
+#include "camera.h"
 
 namespace {
 
@@ -16,11 +17,16 @@ struct Player {
 Player s_player;
 
 void respawn() {
-  s_player.body.box = { PLAYER_SPAWN_X, PLAYER_SPAWN_Y, PLAYER_W, PLAYER_H };
+  // M3a: respawn ahead of the camera's current left edge. Camera never
+  // retreats, so respawning at absolute spawn would put the player off-screen
+  // behind it. LIMITATION (logged): the terrain at cam+SPAWN_X may itself be
+  // a pit; real checkpoint respawn arrives with chunks at M3b.
+  float rx = camera::x() + PLAYER_SPAWN_X;
+  s_player.body.box = { rx, PLAYER_SPAWN_Y, PLAYER_W, PLAYER_H };
   s_player.body.vx = 0;
   s_player.body.vy = 0;
   s_player.body.grounded = false;
-  s_player.prevX = PLAYER_SPAWN_X;
+  s_player.prevX = rx;
   s_player.prevY = PLAYER_SPAWN_Y;
 }
 
@@ -60,12 +66,13 @@ void update(float dt) {
   s_player.prevY = s_player.body.box.y;
   physics::step(s_player.body, dt);
 
-  // Screen-edge clamp (M2b only: camera is fixed; M3 world scroll replaces this).
-  if (s_player.body.box.x < 0) s_player.body.box.x = 0;
-  if (s_player.body.box.x > LCD_WIDTH - PLAYER_W)
-    s_player.body.box.x = LCD_WIDTH - PLAYER_W;
+  // Back-edge clamp (M3a): camera ratchets forward only, so its left edge is
+  // the world's trailing wall. No right clamp — walking right drags the camera.
+  if (s_player.body.box.x < camera::x())
+    s_player.body.box.x = camera::x();
 
-  // Fell into a pit: off-screen bottom = death → respawn (lives arrive at M4).
+  // Fell into a pit: below screen bottom = death → respawn (lives arrive at M4).
+  // World Y == screen Y (camera scrolls horizontally only).
   if (s_player.body.box.y > LCD_HEIGHT + PLAYER_PIT_MARGIN_PX) respawn();
 }
 
@@ -75,17 +82,26 @@ void beginRender(float alpha) {
 }
 
 void composeBand(lgfx::LGFX_Sprite& band, int32_t bandY) {
+  // World→screen: subtract interpolated camera X. Player and camera use the
+  // SAME frame alpha, so their difference is beat-free on screen.
+  const int32_t camX = (int32_t)camera::drawX();
+
   // Placeholder terrain: draw the physics solids directly so what you see IS
-  // the collision set. Deleted at M3 when level chunks own terrain art.
+  // the collision set. Deleted at M3b when level chunks own terrain art.
   int n;
   const physics::AABB* s = physics::solids(n);
-  for (int i = 0; i < n; ++i)
-    fillRectInBand(band, bandY, (int32_t)s[i].x, (int32_t)s[i].y,
+  for (int i = 0; i < n; ++i) {
+    int32_t sx = (int32_t)s[i].x - camX;
+    if (sx + (int32_t)s[i].w <= 0 || sx >= LCD_WIDTH) continue;  // off-screen
+    fillRectInBand(band, bandY, sx, (int32_t)s[i].y,
                    (int32_t)s[i].w, (int32_t)s[i].h, COLOR_TERRAIN_DEBUG);
+  }
 
-  // Player: plain rect for now (sprites module arrives later in M2).
-  fillRectInBand(band, bandY, (int32_t)s_player.drawX, (int32_t)s_player.drawY,
-                 PLAYER_W, PLAYER_H, COLOR_PLAYER_DEBUG);
+  // Player: plain rect for now (sprites module arrives at M3d/M5).
+  fillRectInBand(band, bandY, (int32_t)s_player.drawX - camX,
+                 (int32_t)s_player.drawY, PLAYER_W, PLAYER_H, COLOR_PLAYER_DEBUG);
 }
+
+float playerX() { return s_player.body.box.x; }
 
 } // namespace entities

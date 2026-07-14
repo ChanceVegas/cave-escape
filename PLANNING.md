@@ -40,6 +40,7 @@ sections, crouch, boss, audio. Do not build these early.
 | sprites | src/sprites.* | sprite structs, animation frames | not started (player is a debug rect until then) |
 | input | src/input.* | drag-joystick gestures → abstract actions (moveX/jump) | DONE (M2a, hw-verified 2026-07-13) |
 | physics | src/physics.* | gravity + axis-separated AABB vs static solids | DONE (M2b, hw-verified 2026-07-14) |
+| camera | src/camera.* | world-space camera, one-way ratchet follow, world→screen origin | M3a code done, hw-verify pending |
 | entities | src/entities.* | player, enemies, pickups | player DONE (M2b); enemies/pickups at M3 |
 | level | src/level.* | chunk library + procedural chaining, difficulty ramp | not started |
 | game_state | src/game_state.* | menu / playing / paused / game over | not started |
@@ -73,7 +74,21 @@ sections, crouch, boss, audio. Do not build these early.
 - **M2 — Player:** ✅ DONE 2026-07-14. M2a input (hw-verified 07-13) + M2b physics/player
   (hw-verified 07-14: gravity, jump apex 50 px, head-bonk, pit respawn, no ghost jumps).
   Player art = debug rect until sprites module (M3/M5).
-- **M3 — World:** level data, obstacles, enemies, camera scroll.
+- **M3 — World:** broken down 2026-07-14 (user-approved). "First 2 hazard types"
+  = pits (exist since M2b) + static spikes, per user decision; patrolling creature
+  deferred to M3-stretch/M4.
+  - **M3a — Camera scroll:** world coordinates, one-way ratchet follow
+    (DECISION 2026-07-14: player-driven camera, NOT auto-scroll — Pitfall-style
+    agency; ratchet bounds M3b chunk recycling), back-edge clamp, parallax
+    driven by camera. Code done; hardware gate: fps ≥ 25 + feel check.
+  - **M3b — Chunk system:** chunk data format, 3-4 hand-authored chunks,
+    procedural chaining + solid recycling, hardcoded terrain deleted,
+    checkpoint respawn = last chunk boundary, distance score off camera X.
+    Pit widths ≤ ~86 px effective (FEEL-1).
+  - **M3c — Static spikes/stalactites:** authored in chunk data, AABB overlap
+    = death → respawn. Completes M3 hazard scope.
+  - **(stretch) M3d — Patrolling creature:** first dynamic enemy; the real
+    test of the 4 ms core-1 budget (PERF-4). May slip to M4.
 - **M4 — Game loop:** states, score, HUD, lose/win.
 - **M5 — Polish:** animation, tuning pass on config.h, optional audio.
 

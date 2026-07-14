@@ -3,20 +3,33 @@
 Every session: read this first, update it last. If it isn't logged here, the next session doesn't know it happened.
 
 ## Current State
-- Phase: M2 COMPLETE ✅ (M2b hw-verified 2026-07-14; M2a 2026-07-13; M1 2026-07-12)
-- Builds: yes (espressif32@6.5.0)
-- Runs on hardware: yes — parallax + player physics + debug terrain, dual-core pipeline
-- Measured FPS: 25.3 locked; render avg 34.5 ms (M2b compose cost +2.5 ms vs M1)
-- Heap: stable at 291,184 across extended run (no-alloc rule holding)
+- Phase: M3a CODE DONE (2026-07-14) — camera scroll on branch m3-world; NOT yet
+  compiled or hw-verified (session container could not reach PlatformIO registry).
+- Builds: UNVERIFIED for M3a — first `pio run` on target machine is the compile gate.
+  (M2 close on main: builds yes, espressif32@6.5.0.)
+- Runs on hardware: M2 tip yes; M3a pending.
+- Measured FPS: 25.3 locked; render avg 34.5 ms (M2b). M3a adds ~zero compose cost
+  (few float ops + off-screen rect skip) — verify, don't assume.
+- Heap: stable at 291,184 at M2 (no-alloc rule holding)
 
 ## Next Up (in order)
-1. Merge m2-player → main (M2 milestone close). Includes .pio purge + .gitignore.
-2. M3 — World: level module (chunk data + procedural chaining), camera scroll
-   (replaces M2b screen-edge clamp), first 2 hazard types, scoring by distance.
-3. M3 constraint from FEEL-1: chunk pit widths must respect max clearance ≈ 92 px
-   (0.66 s airtime × 140 px/s) MINUS ~1-frame input latency margin (~6 px).
+1. M3a hardware verify (protocol per CLAUDE.md rule 8, xfer-tag M3A-R1): build,
+   flash, then test — camera follows at CAM_ANCHOR_X=160, back-edge clamp works,
+   scroll judder-free, parallax tracks camera, pits 60/70/80 px (FEEL-1 data:
+   which are clearable?), ledges A/B reachable, pit respawn lands safely ahead
+   of camera, fps ≥ 25 / render ≤ ~35 ms / heap flat.
+2. M3b — chunk system (scope in PLANNING.md M3 breakdown).
+3. M3c — static spikes. (M3d creature = stretch, may slip to M4.)
 
 ## Known Issues / Risks
+- M3A-1 (open, temporary): pit respawn = camera.x + PLAYER_SPAWN_X with NO terrain
+  check — could theoretically respawn over a pit (not with current test terrain:
+  respawn point is always ≥130 px behind any pit the player can die in). Proper
+  checkpoint respawn arrives at M3b; do not band-aid this.
+- BUILD-1 (open, this session): container couldn't reach PlatformIO registry
+  (api.registry.platformio.org / dl.platformio.org not in network allowlist).
+  M3a committed compile-UNVERIFIED on branch. User may allowlist those domains
+  for future sessions.
 - FEEL-1 (open, M3 design input): 60 px test pit was clearable but tight. Causes to
   separate at M3: constants tuning vs ~40 ms worst-case flick latency (25 Hz touch
   sampling, INPUT-2). Do NOT tune jump constants against throwaway terrain.
@@ -49,6 +62,23 @@ Every session: read this first, update it last. If it isn't logged here, the nex
 - 2026-07-11: endless chunk structure; "Cave Escape" concept; single-touch drag joystick; PlatformIO+Arduino+C++; 3-doc system; PC emulator deferred.
 
 ## Session Log (newest first)
+### 2026-07-14 — Session 5 (M3 breakdown + M3a: camera scroll)
+- M3 broken into M3a/b/c(+d stretch) — user approved; user ruled pits COUNT as one
+  of the 2 hazard types → M3 hazard scope = pits + static spikes; creature = stretch.
+- DECISION: camera is player-driven with one-way forward ratchet (never retreats),
+  not auto-scroll. Rationale: Pitfall-style agency per PLANNING; ratchet bounds
+  chunk recycling at M3b. Back-edge clamp replaces M2b screen-edge clamp.
+- Done (branch m3-world): src/camera.h/.cpp (ratchet follow, prev/curr interp);
+  entities → world space (camera clamp, world→screen in composeBand with off-screen
+  rect skip, respawn relative to camera — see M3A-1); parallax now camera-driven
+  (self-scroll + SCROLL_SPEED_PX_S deleted, update() removed); renderer beginRender
+  order = camera FIRST; config: +CAM_ANCHOR_X 160; main: 3.5-screen test terrain
+  (pits 60/70/80 px for FEEL-1 data, two reachable 40 px ledges), tick order
+  input → entities → camera, tag M3A-R1.
+- Static checks only: no stale refs (SCROLL_SPEED/parallax::update/worldX gone);
+  compile NOT verified (BUILD-1). Hardware verification = next session or user.
+- Commit: feat(m3a): camera scroll — ratchet follow, world-space entities, camera-driven parallax
+
 ### 2026-07-14 — Session 4 (M2b: player physics + repo recovery)
 - Done: physics.h/.cpp (gravity, axis-separated AABB vs static solids, tunnel-proof
   by MAX_FALL clamp), entities.h/.cpp (player: input consumption per tick, prev/curr
