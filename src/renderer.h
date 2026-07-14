@@ -4,7 +4,6 @@
 #include <stdint.h>
 
 namespace renderer {
-bool init();               // allocate band buffer (internal SRAM) + test sprites
-void update(float dt);     // move M1 test sprites (throwaway logic)
+bool init();                   // allocate band buffers (internal SRAM) + start push task
 void renderFrame(float alpha); // compose + push all bands; alpha = update-tick fraction for interpolation
 }

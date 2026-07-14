@@ -1,10 +1,13 @@
-// main.cpp — M1: fixed-timestep loop, parallax + test sprites, fps measurement.
-// GO/NO-GO gate: sustained >= 30 fps with 3 layers + 10 sprites (PLANNING.md M1).
+// main.cpp — M2b: fixed-timestep loop + player physics test harness.
+// Terrain below is throwaway: floor with one pit + one ledge, sized to verify
+// jump apex (~50 px) clears the 32 px ledge and pit-fall triggers respawn.
 #include <Arduino.h>
 #include "display.h"
 #include "parallax.h"
 #include "renderer.h"
 #include "input.h"
+#include "physics.h"
+#include "entities.h"
 #include "config.h"
 #include "board_config.h"
 
@@ -18,6 +21,18 @@ static const uint32_t FRAME_US =
 
 static const float UPDATE_DT = 1.0f / UPDATE_HZ;
 
+// --- M2b test terrain (world = screen space; camera fixed until M3) ---
+// Floor at y=240 split by a 60 px pit; one ledge the jump must clear.
+static const physics::AABB TEST_SOLIDS[] = {
+  {   0, 240, 200, 32 },   // floor, left of pit
+  { 260, 240, 220, 32 },   // floor, right of pit (pit = x 200..260)
+  { 320, 184,  80, 16 },   // ledge: top at 184, 56 px above floor top... see note
+};
+// NOTE: ledge top y=184 puts its surface 56 px above the floor — ABOVE the 50 px
+// jump apex, intentionally: reach it by jumping from the right floor edge is
+// impossible; it exists to test head-bonk (rising collision) from below and
+// landing from a fall. If we want it reachable, change y to 200 (40 px step).
+
 // --- fps instrumentation ---
 static uint32_t s_frames = 0;
 static uint32_t s_statT0 = 0;
@@ -26,12 +41,14 @@ static uint32_t s_frameMsMin = 0xFFFFFFFF, s_frameMsMax = 0, s_frameMsSum = 0;
 void setup() {
   Serial.begin(115200);
   delay(500);
-  Serial.println("\n=== Cave Escape M1 ===");
+  Serial.println("\n=== Cave Escape M2b-r1 ===");
 
   if (!display::init())  { Serial.println("FATAL: display init failed");  for(;;) delay(1000); }
   if (!parallax::init()) { Serial.println("FATAL: parallax init failed (PSRAM alloc?)"); for(;;) delay(1000); }
   if (!renderer::init()) { Serial.println("FATAL: renderer init failed (SRAM alloc?)");  for(;;) delay(1000); }
   if (!input::init())    { Serial.println("FATAL: input init failed"); for(;;) delay(1000); }
+  physics::setSolids(TEST_SOLIDS, sizeof(TEST_SOLIDS) / sizeof(TEST_SOLIDS[0]));
+  if (!entities::init()) { Serial.println("FATAL: entities init failed"); for(;;) delay(1000); }
 
   Serial.printf("post-init heap free: %u | PSRAM free: %u\n",
                 (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getFreePsram());
@@ -51,7 +68,7 @@ void loop() {
   while (acc >= UPDATE_DT) {
     input::update(UPDATE_DT);
     parallax::update(UPDATE_DT);
-    renderer::update(UPDATE_DT);
+    entities::update(UPDATE_DT);   // consumes input::state(); order matters
     acc -= UPDATE_DT;
   }
 

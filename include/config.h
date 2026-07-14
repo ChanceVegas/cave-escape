@@ -23,9 +23,18 @@
 #define PAR_MID_MULT        0.50f   // mid rock formations
 #define PAR_NEAR_MULT       1.00f   // foreground floor = world speed
 
-// --- M1 test sprites (throwaway; replaced by real entities at M2/M3) ---
-#define TEST_SPRITE_COUNT   10
-#define TEST_SPRITE_SIZE    16      // px, square
+// --- Player physics (M2b) ---
+// Feel targets: apex ≈ 50 px (clears a 32 px ledge with margin), time-to-apex
+// ≈ 0.33 s (snappy, Pitfall-ish). Derivation: apex = JUMP_VEL^2 / (2*GRAVITY).
+#define GRAVITY_PX_S2        900.0f // px/s^2; higher = heavier, less floaty
+#define PLAYER_JUMP_VEL_PX_S 300.0f // px/s initial jump impulse (upward)
+#define PLAYER_MAX_FALL_PX_S 480.0f // px/s terminal fall; 8 px/tick @60 Hz keeps AABB tunnel-proof
+#define PLAYER_SPEED_PX_S    140.0f // px/s full-stick run speed; slightly faster than world scroll
+#define PLAYER_W             16     // px hitbox width
+#define PLAYER_H             24     // px hitbox height
+#define PLAYER_SPAWN_X       40.0f  // px; M2b test-harness spawn
+#define PLAYER_SPAWN_Y       120.0f // px; spawn in the air → visible gravity on boot
+#define PLAYER_PIT_MARGIN_PX 40     // px below screen bottom before pit-death respawn
 
 // --- Input: single-touch drag joystick (PLANNING #5) ---
 #define INPUT_DEADZONE_PX    10     // px from anchor before movement registers; kills resistive jitter
@@ -39,3 +48,5 @@
 
 // --- Colors (RGB565) ---
 #define COLOR_TRANSPARENT   0xF81F  // magenta color key for layer/sprite transparency
+#define COLOR_PLAYER_DEBUG  0xF800  // red — M2b placeholder player rect
+#define COLOR_TERRAIN_DEBUG 0x8410  // gray — M2b placeholder terrain (drawn from physics solids)

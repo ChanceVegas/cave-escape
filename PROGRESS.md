@@ -3,23 +3,33 @@
 Every session: read this first, update it last. If it isn't logged here, the next session doesn't know it happened.
 
 ## Current State
-- Phase: M2a COMPLETE ✅ (2026-07-13) — input module verified on hardware (M1 done 2026-07-12)
+- Phase: M2 COMPLETE ✅ (M2b hw-verified 2026-07-14; M2a 2026-07-13; M1 2026-07-12)
 - Builds: yes (espressif32@6.5.0)
-- Runs on hardware: yes — 3 parallax layers + 10 test sprites, dual-core pipeline
-- Measured FPS: 25.3, LOCKED to panel refresh period (was 27.2 free-running; judder-free)
-- Target: REVISED to 25 fps floor (user decision at M1 gate; rationale in PLANNING.md)
+- Runs on hardware: yes — parallax + player physics + debug terrain, dual-core pipeline
+- Measured FPS: 25.3 locked; render avg 34.5 ms (M2b compose cost +2.5 ms vs M1)
+- Heap: stable at 291,184 across extended run (no-alloc rule holding)
 
 ## Next Up (in order)
-1. Commit M2a on m2-player branch.
-2. M2b — Player: sprite, jump/gravity physics, ground collision, consuming input per logic tick. Test sprites in renderer.cpp get deleted here.
-3. M2b note: player rendering must interpolate (prev/curr state + alpha) like parallax, or the M1 scroll-jerk returns on the player sprite.
+1. Merge m2-player → main (M2 milestone close). Includes .pio purge + .gitignore.
+2. M3 — World: level module (chunk data + procedural chaining), camera scroll
+   (replaces M2b screen-edge clamp), first 2 hazard types, scoring by distance.
+3. M3 constraint from FEEL-1: chunk pit widths must respect max clearance ≈ 92 px
+   (0.66 s airtime × 140 px/s) MINUS ~1-frame input latency margin (~6 px).
 
 ## Known Issues / Risks
+- FEEL-1 (open, M3 design input): 60 px test pit was clearable but tight. Causes to
+  separate at M3: constants tuning vs ~40 ms worst-case flick latency (25 Hz touch
+  sampling, INPUT-2). Do NOT tune jump constants against throwaway terrain.
+- PROC-1 (lesson, closed): M2b code sat uncommitted in a session container and was
+  nearly rewritten from scratch next session. Rule: session end = commit, even wip(...)
+  on a branch. Uncommitted work does not exist.
+- PERF-4 REVISED 2026-07-14: render avg 34.5 ms → core-1 headroom for ALL M3 logic
+  ≈ 4 ms/frame. RLE compositor remains the pre-planned overdraft response.
 - PERF-1 (open, managed): 27.2 fps is only 2.2 above floor; game logic at M2/M3 shares core 1 with compose. If M3 dips below 25: RLE-span compositor is the pre-planned response (PLANNING.md).
 - PERF-2 (accepted): core 0 idle-task watchdog disabled (disableCore0WDT) — push task saturates core 0 by design. Trade-off: no hang detection on core 0.
 - PERF-3 (open, minor): render is frequency-locked to panel but not PHASE-locked (LovyanGFX exposes no vsync event). A faint static tear line may sit at a boot-random row; reset re-rolls it. Proper fix = esp_lcd vsync callback — documented reason to migrate off LovyanGFX's RGB path if it ever matters.
 - PERF-4 (open, managed): core-1 logic budget ≈ 6 ms/frame at M2/M3 (39.6 ms period − 32 compose − 1 updates). Overdraft response: RLE compositor. M2a data point: touch polling at 60 Hz ticks costs nothing measurable (fps steady 25.3 while touching).
-- INPUT-1 (watch): under aggressive diagonal scrubbing, velocity-only jump triggers occasionally fired in one uncontrolled test; did NOT reproduce in the controlled false-positive test (0/5 hard horizontal scrubs). If ghost jumps appear in gameplay, the ready fix is requiring upward step > horizontal step (|dY| > |dX|) for the velocity trigger.
+- INPUT-1 (watch): possible ghost jumps under aggressive diagonal scrubbing — one uncontrolled sighting; 0/5 in controlled scrubs at M2a; ZERO during M2b gameplay testing incl. deliberate diagonal scrubbing (2026-07-14). Ready fix if it ever recurs: require |dY| > |dX| for the velocity trigger.
 - INPUT-2 (design fact): effective touch sampling is ~25 Hz (one real sample per frame; the 2-3 logic ticks per frame read identical coordinates). Jump detection is designed around this. A 120 Hz sampler task is the documented upgrade if finer gestures are ever needed.
 - HW-2 (RESOLVED as understood): "PSRAM bandwidth" risk was really shared flash+PSRAM memory-bus saturation. Measured, mitigated (pclk 4 MHz, flash layers, row-skip, dual-core), documented in PLANNING.md.
 - M0-3 (RESOLVED): LovyanGFX Bus_RGB/Panel_RGB need explicit esp32s3 platform header includes.
@@ -39,6 +49,29 @@ Every session: read this first, update it last. If it isn't logged here, the nex
 - 2026-07-11: endless chunk structure; "Cave Escape" concept; single-touch drag joystick; PlatformIO+Arduino+C++; 3-doc system; PC emulator deferred.
 
 ## Session Log (newest first)
+### 2026-07-14 — Session 4 (M2b: player physics + repo recovery)
+- Done: physics.h/.cpp (gravity, axis-separated AABB vs static solids, tunnel-proof
+  by MAX_FALL clamp), entities.h/.cpp (player: input consumption per tick, prev/curr
+  render interpolation, pit respawn), renderer wired to entities::composeBand (M1 test
+  sprites deleted), config.h player constants (apex 50 px / 0.33 s derivation
+  documented), M2b test terrain in main.cpp (floor + 60 px pit + head-bonk ledge).
+- Hardware-verified per protocol (xfer-tag M2B-R1): gravity/landing clean, full-range
+  move + edge clamp, jump apex correct, airborne flicks ignored, pit respawn without
+  interp streak, head-bonk correct AND unreachable ledge confirmed unreachable,
+  pit clearable at full stick (tight — logged FEEL-1), no ghost jumps (INPUT-1),
+  fps 25.3 / render 34.5 ms avg / heap flat 291,184.
+- Repo recovery en route: stale doc copies attached to session came from OUTSIDE the
+  repo (repo docs were current all along); duplicate docs in include/ removed (were
+  byte-identical, but duplicated truth invites divergence); wrong-branch push and a
+  GitHub-merge/local-merge history divergence untangled (pull --rebase). Rule going
+  forward: solo project merges happen locally, not via GitHub UI, OR always pull main
+  first. .pio/ build artifacts found committed (15 MB elf) — purged this session via
+  .gitignore + git rm -r --cached.
+- Process failure logged honestly (PROC-1): this M2b code was written in a prior
+  session and never committed; it survived only by container luck and was one answer
+  away from being rewritten. Session end = commit, always.
+- Commit: feat(m2b): player physics + collision + placeholder render, hardware-verified
+
 ### 2026-07-13 — Session 3 (M2a: input)
 - Done: input module (src/input.h/.cpp) — drag-joystick state machine on XPT2046 via LovyanGFX touch (hw config in display.cpp, gestures in input.cpp, backend-abstract per PLANNING #5). moveX verified full-range both directions with correct polarity and quiet dead zone; jump verified 5/5 (fast + slow flicks), 0/5 false positives on horizontal scrubs.
 - Bug found & fixed IN THE TEST HARNESS, not the gesture code: jumpPressed is a one-tick edge, but the main.cpp harness polled it after the 2-3-tick batch — only ~1-in-3 jumps survived to print. All earlier "flaky jump" results (4/6, 3/6, 0/6) were this measurement bug plus stale-file flashes. Raw-trace instrumentation (T0/S/T1 sample logging) is what isolated it.
@@ -61,6 +94,8 @@ Every session: read this first, update it last. If it isn't logged here, the nex
 - Scaffolding, toolchain, hardware confirmed (S3 N4R2, RGB parallel, NV3047), concept + input scheme decided, repo initialized and pushed.
 
 ## Changelog (human-readable milestones)
+- v0.3.0 — 2026-07-14 — M2: playable player. Drag-joystick move + flick jump, gravity,
+  AABB collision, pit respawn, on hardware at 25.3 fps.
 - v0.2.0 — 2026-07-12 — M1: render skeleton on hardware. 25.3 fps locked to panel, judder-free, 3 parallax layers + 10 sprites, dual-core pipeline. Target revised to 25 fps floor.
 - v0.1.0 — 2026-07-12 — M0: toolchain proven on hardware.
 - v0.0.0 — 2026-07-11 — Project scaffolded. No code.
