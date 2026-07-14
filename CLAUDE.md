@@ -41,16 +41,34 @@ Rendering implications (binding until M1 measurements say otherwise):
 7. Every module gets a one-line purpose comment at top and is listed in PLANNING.md's module map. If you add a module, update PLANNING.md in the same commit.
 
 ## Session Workflow (mandatory)
-1. Read CLAUDE.md + PROGRESS.md.
+1. SESSION START = CLONE. Clone https://github.com/ChanceVegas/cave-escape.git and
+   read CLAUDE.md + PROGRESS.md + PLANNING.md FROM THE CLONE. The repo is the only
+   source of truth. Never trust files attached to a chat, memory summaries, or a
+   leftover container working tree without diffing them against the repo first —
+   stale attachments cost a full session of confusion once (see PROGRESS 07-14).
+   If repo state contradicts the session's inputs, STOP and raise it.
 2. Work ONE task from "Next Up" in PROGRESS.md. Small scope.
-3. Before ending: update PROGRESS.md (state, session log entry, known issues).
-4. Commit format: `type(scope): summary` — types: feat, fix, refactor, docs, perf, chore.
-   One logical change per commit. Never commit non-compiling code to main.
-5. If you discover a design problem, do NOT silently work around it. Log it in
+3. Before ending: update PROGRESS.md (state, session log entry, known issues) and
+   commit it IN THE SAME COMMIT as the feature work — doc drift is a logged failure.
+4. SESSION END = COMMIT. All work gets committed before the session closes, even
+   incomplete work as `wip(scope): ...` on a branch. Uncommitted work does not
+   exist (PROC-1: hardware-verified code was nearly lost and rewritten).
+5. Commit format: `type(scope): summary` — types: feat, fix, refactor, docs, perf,
+   chore, wip. One logical change per commit. Never commit non-compiling code to
+   main (wip commits live on branches only). Never `git add -A` blindly — check
+   `git status` first; build artifacts (.pio/) are gitignored and must stay out.
+6. Merges happen LOCALLY, not via the GitHub web UI (mixing the two forked history
+   once). Branch per milestone (m3-world, ...); merge to main at milestone close.
+7. If you discover a design problem, do NOT silently work around it. Log it in
    PROGRESS.md "Known Issues" and raise it with the user.
+8. Code transfer to the target machine follows the hardware test protocol in
+   PROGRESS.md Decisions (pbpaste, xfer-tag grep, upload SUCCESS, RST + banner).
 
 ## Repo Map
+- Remote: https://github.com/ChanceVegas/cave-escape.git (public)
 - CLAUDE.md — this file (rules, hardware, toolchain)
 - PLANNING.md — architecture, module map, milestones, open decisions
 - PROGRESS.md — current state, session log, known issues, changelog
-- src/, include/, assets/ — created at M0
+- src/, include/ — code; tools/ — asset generators
+- .gitignore — .pio/ and .vscode/ stay out of the repo. These docs live at repo
+  root ONLY — never duplicate them into src/ or include/ (duplicated truth diverges)
