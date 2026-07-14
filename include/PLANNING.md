@@ -38,7 +38,7 @@ sections, crouch, boss, audio. Do not build these early.
 | renderer | src/renderer.* | dual-core band pipeline (compose core 1 / push core 0) | DONE (M1) |
 | parallax | src/parallax.* | flash-resident indexed layers, interpolated scroll | DONE (M1; art is placeholder) |
 | sprites | src/sprites.* | sprite structs, animation frames | not started |
-| input | src/input.* | touch zones → game actions | not started |
+| input | src/input.* | drag-joystick gestures → abstract actions (moveX/jump) | DONE (M2a, hw-verified 2026-07-13) |
 | physics | src/physics.* | movement, gravity, collision (AABB) | not started |
 | entities | src/entities.* | player, enemies, pickups | not started |
 | level | src/level.* | chunk library + procedural chaining, difficulty ramp | not started |
@@ -47,7 +47,12 @@ sections, crouch, boss, audio. Do not build these early.
 
 ## Performance Budget (REVISED at M1 close, 2026-07-12 — measured, not assumed)
 - Target: 25 fps floor = 40 ms/frame (revised from 30; see M1 outcome below).
-- Measured at M1: 27.2 fps steady. compose ~32 ms (core 1) ∥ push ~34 ms (core 0).
+- Measured at M1: 27.2 fps free-running; final = 25.3 fps LOCKED to panel refresh
+  (frame limiter in main.cpp; render and panel share a crystal, so frequency-lock
+  eliminates the ~2 Hz render-vs-scanout beat that caused visible scroll judder).
+- Core-1 budget at M2/M3: frame period 39.6 ms − compose ~32 ms − updates ~1 ms
+  ≈ 6 ms/frame for ALL game logic (input, physics, entities, level). Tight.
+  First overdraft response: RLE compositor (below) to shrink compose.
 - Binding constraint: flash + PSRAM share one memory bus; compose flash reads,
   push PSRAM writes, and panel scanout all serialize on it. More parallelism
   cannot help; only less traffic can.
@@ -63,7 +68,7 @@ sections, crouch, boss, audio. Do not build these early.
 
 ## Milestones
 - **M0 — Toolchain proof:** PlatformIO project builds, flashes, blinks a pixel/fills screen. Confirms board config.
-- **M1 — Render skeleton:** ✅ DONE 2026-07-12. 27.2 fps measured, 3 layers + 10 sprites. Gate resolved by revising target to 25 fps floor (documented above).
+- **M1 — Render skeleton:** ✅ DONE 2026-07-12. 25.3 fps locked to panel refresh, 3 layers + 10 sprites, judder-free scroll. Gate resolved by revising target to 25 fps floor (documented above).
 - **M2 — Player:** sprite, touch input, jump physics, ground collision. (Concept must be defined by now.)
 - **M3 — World:** level data, obstacles, enemies, camera scroll.
 - **M4 — Game loop:** states, score, HUD, lose/win.
