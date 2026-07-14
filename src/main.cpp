@@ -4,6 +4,7 @@
 #include "display.h"
 #include "parallax.h"
 #include "renderer.h"
+#include "input.h"
 #include "config.h"
 #include "board_config.h"
 
@@ -30,6 +31,7 @@ void setup() {
   if (!display::init())  { Serial.println("FATAL: display init failed");  for(;;) delay(1000); }
   if (!parallax::init()) { Serial.println("FATAL: parallax init failed (PSRAM alloc?)"); for(;;) delay(1000); }
   if (!renderer::init()) { Serial.println("FATAL: renderer init failed (SRAM alloc?)");  for(;;) delay(1000); }
+  if (!input::init())    { Serial.println("FATAL: input init failed"); for(;;) delay(1000); }
 
   Serial.printf("post-init heap free: %u | PSRAM free: %u\n",
                 (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getFreePsram());
@@ -47,6 +49,7 @@ void loop() {
   if (acc > 0.25f) acc = 0.25f;            // clamp after stalls (e.g. serial)
 
   while (acc >= UPDATE_DT) {
+    input::update(UPDATE_DT);
     parallax::update(UPDATE_DT);
     renderer::update(UPDATE_DT);
     acc -= UPDATE_DT;

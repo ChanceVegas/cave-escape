@@ -305,4 +305,5 @@
  /Users/nht_test2/.platformio/packages/framework-arduinoespressif32@3.20014.231204/tools/sdk/esp32s3/include/esp_lcd/include/esp_lcd_panel_vendor.h \
  /Users/nht_test2/.platformio/packages/framework-arduinoespressif32@3.20014.231204/tools/sdk/esp32s3/include/esp_lcd/include/esp_lcd_panel_ops.h \
  /Users/nht_test2/.platformio/packages/framework-arduinoespressif32@3.20014.231204/tools/sdk/esp32s3/include/esp_lcd/interface/esp_lcd_panel_interface.h \
- src/parallax.h src/renderer.h src/config.h include/board_config.h
+ src/parallax.h src/renderer.h src/input.h include/config.h \
+ include/board_config.h

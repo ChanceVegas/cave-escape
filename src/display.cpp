@@ -5,9 +5,10 @@
 namespace {
 
 class LGFX_CrowPanel43 : public lgfx::LGFX_Device {
-  lgfx::Bus_RGB   _bus;
-  lgfx::Panel_RGB _panel;
-  lgfx::Light_PWM _light;
+  lgfx::Bus_RGB        _bus;
+  lgfx::Panel_RGB      _panel;
+  lgfx::Light_PWM      _light;
+  lgfx::Touch_XPT2046  _touch;
 
 public:
   LGFX_CrowPanel43() {
@@ -61,6 +62,25 @@ public:
       cfg.pin_bl = LCD_PIN_BL;
       _light.config(cfg);
       _panel.light(&_light);
+    }
+    {
+      // XPT2046 resistive touch, own SPI host (pins shared with unused TF slot).
+      auto cfg = _touch.config();
+      cfg.spi_host = SPI2_HOST;
+      cfg.freq     = TOUCH_SPI_HZ;
+      cfg.pin_sclk = TOUCH_PIN_SCK;
+      cfg.pin_mosi = TOUCH_PIN_MOSI;
+      cfg.pin_miso = TOUCH_PIN_MISO;
+      cfg.pin_cs   = TOUCH_PIN_CS;
+      cfg.pin_int  = TOUCH_PIN_INT;
+      cfg.bus_shared = false;
+      cfg.x_min = TOUCH_X_MIN;  cfg.x_max = TOUCH_X_MAX;
+      cfg.y_min = TOUCH_Y_MIN;  cfg.y_max = TOUCH_Y_MAX;
+      // offset_rotation is empirical per panel; 0 first, fix from the M2a
+      // raw-coordinate test if axes come out mirrored/swapped.
+      cfg.offset_rotation = 0;
+      _touch.config(cfg);
+      _panel.setTouch(&_touch);
     }
     setPanel(&_panel);
   }
