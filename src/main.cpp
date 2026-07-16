@@ -1,6 +1,5 @@
-// main.cpp — M3a: fixed-timestep loop + camera-scroll test harness.
-// Terrain below is throwaway (deleted at M3b): ~3.5 screens of floor with pits
-// and ledges to verify camera follow, back-edge clamp, and scrolling collision.
+// main.cpp — M3b: fixed-timestep loop; terrain now owned by the level module
+// (procedurally chained chunks). The M2b/M3a hardcoded test terrain is gone.
 #include <Arduino.h>
 #include "display.h"
 #include "parallax.h"
@@ -9,6 +8,7 @@
 #include "physics.h"
 #include "entities.h"
 #include "camera.h"
+#include "level.h"
 #include "config.h"
 #include "board_config.h"
 
@@ -22,18 +22,6 @@ static const uint32_t FRAME_US =
 
 static const float UPDATE_DT = 1.0f / UPDATE_HZ;
 
-// --- M3a test terrain (WORLD space, ~3.5 screens = 1680 px; throwaway) ---
-// Pit widths honor FEEL-1: max clearance ~92 px minus latency margin → ≤86 px;
-// widest here is 80 (stretch) after a 60 (warm-up). Reachable 40 px ledges.
-static const physics::AABB TEST_SOLIDS[] = {
-  {    0, 240,  400, 32 },   // start floor
-  {  460, 240,  340, 32 },   // pit 1: x 400..460 (60 px, M2b-verified width)
-  {  560, 200,   96, 16 },   // ledge A: 40 px step up, reachable (apex 50 px)
-  {  870, 240,  410, 32 },   // pit 2: x 800..870 (70 px — FEEL-1 data point)
-  { 1360, 240,  320, 32 },   // pit 3: x 1280..1360 (80 px), then final floor
-  { 1420, 200,   96, 16 },   // ledge B on final floor
-};
-
 // --- fps instrumentation ---
 static uint32_t s_frames = 0;
 static uint32_t s_statT0 = 0;
@@ -42,14 +30,14 @@ static uint32_t s_frameMsMin = 0xFFFFFFFF, s_frameMsMax = 0, s_frameMsSum = 0;
 void setup() {
   Serial.begin(115200);
   delay(500);
-  Serial.println("\n=== Cave Escape M3A-R1 ===");
+  Serial.println("\n=== Cave Escape M3B-R1 ===");
 
   if (!display::init())  { Serial.println("FATAL: display init failed");  for(;;) delay(1000); }
   if (!parallax::init()) { Serial.println("FATAL: parallax init failed (PSRAM alloc?)"); for(;;) delay(1000); }
   if (!renderer::init()) { Serial.println("FATAL: renderer init failed (SRAM alloc?)");  for(;;) delay(1000); }
   if (!input::init())    { Serial.println("FATAL: input init failed"); for(;;) delay(1000); }
-  physics::setSolids(TEST_SOLIDS, sizeof(TEST_SOLIDS) / sizeof(TEST_SOLIDS[0]));
   if (!camera::init())   { Serial.println("FATAL: camera init failed"); for(;;) delay(1000); }
+  if (!level::init())    { Serial.println("FATAL: level init failed"); for(;;) delay(1000); }
   if (!entities::init()) { Serial.println("FATAL: entities init failed"); for(;;) delay(1000); }
 
   Serial.printf("post-init heap free: %u | PSRAM free: %u\n",
@@ -71,6 +59,7 @@ void loop() {
     input::update(UPDATE_DT);
     entities::update(UPDATE_DT);   // consumes input::state(); order matters
     camera::update(UPDATE_DT);     // AFTER entities — follows this tick's player
+    level::update(UPDATE_DT);      // LAST — checkpoint/recycle/prefetch off final positions
     acc -= UPDATE_DT;
   }
 
@@ -95,10 +84,11 @@ void loop() {
   uint32_t now = millis();
   if (now - s_statT0 >= 1000) {
     float fps = s_frames * 1000.0f / (now - s_statT0);
-    Serial.printf("fps: %.1f | render ms avg %.1f min %lu max %lu | heap %u\n",
+    Serial.printf("fps: %.1f | render ms avg %.1f min %lu max %lu | heap %u | dist %lu\n",
                   fps, s_frames ? (float)s_frameMsSum / s_frames : 0.0f,
                   (unsigned long)s_frameMsMin, (unsigned long)s_frameMsMax,
-                  (unsigned)ESP.getFreeHeap());
+                  (unsigned)ESP.getFreeHeap(),
+                  (unsigned long)level::distancePx());  // score basis; HUD at M4
     s_frames = 0; s_frameMsSum = 0; s_frameMsMin = 0xFFFFFFFF; s_frameMsMax = 0;
     s_statT0 = now;
   }

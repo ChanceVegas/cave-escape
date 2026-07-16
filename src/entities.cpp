@@ -5,6 +5,7 @@
 #include "config.h"
 #include "board_config.h"
 #include "camera.h"
+#include "level.h"
 
 namespace {
 
@@ -17,11 +18,12 @@ struct Player {
 Player s_player;
 
 void respawn() {
-  // M3a: respawn ahead of the camera's current left edge. Camera never
-  // retreats, so respawning at absolute spawn would put the player off-screen
-  // behind it. LIMITATION (logged): the terrain at cam+SPAWN_X may itself be
-  // a pit; real checkpoint respawn arrives with chunks at M3b.
-  float rx = camera::x() + PLAYER_SPAWN_X;
+  // M3b: respawn at last chunk boundary crossed (level::checkpointX). Chunk
+  // authoring guarantees >=96 px flat floor at every chunk start, so
+  // checkpoint + PLAYER_SPAWN_X (40) always lands on ground. Camera snaps
+  // back with the player (respawn-only ratchet exception). Retires M3A-1.
+  float rx = level::checkpointX() + PLAYER_SPAWN_X;
+  camera::snapTo(level::checkpointX());
   s_player.body.box = { rx, PLAYER_SPAWN_Y, PLAYER_W, PLAYER_H };
   s_player.body.vx = 0;
   s_player.body.vy = 0;

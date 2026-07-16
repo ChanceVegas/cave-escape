@@ -3,17 +3,22 @@
 Every session: read this first, update it last. If it isn't logged here, the next session doesn't know it happened.
 
 ## Current State
-- Phase: M3a HW-VERIFIED ✅ (2026-07-14, tag M3A-R1, branch m3-world)
+- Phase: M3b CODE DONE (2026-07-15, tag M3B-R1) — compiled in container; hw-verify pending.
+  M3a HW-VERIFIED ✅ (2026-07-14, M3A-R1)
 - Builds: yes (espressif32@6.5.0; RAM 6.7%, Flash 60.7%)
 - Runs on hardware: yes — camera ratchet follow, world-space collision, camera-driven parallax
 - Measured FPS: 25.2–25.3 locked; render avg 34.5 ms (M3a compose cost ~0 vs M2b, verified)
 - Heap: flat at 291,176 across extended run (no-alloc rule holding)
 
 ## Next Up (in order)
-1. M3b — chunk system (scope in PLANNING.md M3 breakdown). Design constraint
-   from FEEL-2: wide pits (≥70 px) need run-up room; don't place them right
-   after checkpoints or speed-killing obstacles.
-2. M3c — static spikes. (M3d creature = stretch, may slip to M4.)
+1. M3b hardware verify (protocol per CLAUDE.md rule 8, xfer-tag M3B-R1):
+   endless terrain (no world's-end pit), chunk variety incl. pit60/pit80/ledge,
+   no gaps or overlaps at chunk seams, die -> respawn at last chunk boundary
+   on floor + camera snaps back with player, score (serial "dist") rises while
+   running and NEVER dips after death, fps >= 25 / render <= ~35 ms / heap flat.
+   Also run the INPUT-4 prereq experiment: flick-jump standstill vs mid-drag.
+2. INPUT-4 — fixed visible stick + position-based jump (spec below, user-approved).
+3. M3c — static spikes. (M3d creature = stretch, may slip to M4.)
 3. INPUT-4 (user-approved design, build BETWEEN M3b and M3c): fixed visible
    stick, bottom-left — translucent base circle + thumb-offset dot, overlaid
    on full 272 px playfield (no reserved strip; viewport unchanged, chunk
@@ -26,7 +31,9 @@ Every session: read this first, update it last. If it isn't logged here, the nex
    while dragging (diagonal), work from standstill? Confirms the diagnosis.
 
 ## Known Issues / Risks
-- M3A-1 (open, temporary — hw test 07-14 showed no bad respawns incl. pit 3): pit respawn = camera.x + PLAYER_SPAWN_X with NO terrain
+- LEVEL-1 (open, minor): randomSeed(micros()) at boot -> near-deterministic
+  chunk sequence across boots. Fine for testing; add touch-entropy at M4/M5.
+- M3A-1 (RESOLVED 2026-07-15 by M3b): checkpoint respawn replaced camera-relative respawn; chunk starts guarantee floor. Was: pit respawn = camera.x + PLAYER_SPAWN_X with NO terrain
   check — could theoretically respawn over a pit (not with current test terrain:
   respawn point is always ≥130 px behind any pit the player can die in). Proper
   checkpoint respawn arrives at M3b; do not band-aid this.
@@ -68,6 +75,28 @@ Every session: read this first, update it last. If it isn't logged here, the nex
 - 2026-07-11: endless chunk structure; "Cave Escape" concept; single-touch drag joystick; PlatformIO+Arduino+C++; 3-doc system; PC emulator deferred.
 
 ## Session Log (newest first)
+### 2026-07-15 — Session 7 (M3b: chunk system)
+- DECISION AMENDED (camera, 07-14): ratchet gets ONE exception — camera::snapTo
+  (checkpoint) on respawn only. Death can leave the checkpoint behind the
+  camera's left edge; Pitfall-style snap-back. snapTo collapses interp state
+  (prev=curr=drawX) so there's no one-frame sweep.
+- Done (M3B-R1): src/level.h/.cpp — chunk format {width, solids[]} chunk-relative,
+  4-chunk flash library (flat / pit60 / ledge / pit80-with-320px-run-up per
+  FEEL-2), ring of active chunks (LEVEL_MAX_ACTIVE 6), fixed solids pool
+  (LEVEL_SOLIDS_POOL 32) re-registered via physics::setSolids on window change,
+  recycle keyed on CHECKPOINT (not camera) so respawn terrain always exists,
+  prefetch LEVEL_PREFETCH_PX 160 past view; checkpoint = last chunk boundary
+  crossed; entities::respawn -> checkpoint + PLAYER_SPAWN_X (retires M3A-1);
+  distance score = monotonic max camera X (bug caught in-session: raw camera.x
+  would dip at respawn snap), printed in serial stats ("dist"); main.cpp test
+  terrain DELETED, tick order input -> entities -> camera -> level.
+- Authoring rules encoded in level.cpp header comment: every chunk starts with
+  >=96 px flat floor at y=240; wide pits carry in-chunk run-up.
+- Compiled in container (pio run SUCCESS). Hardware verification = next step.
+- Known minor: randomSeed(micros()) at boot is low-entropy — chunk sequence may
+  repeat across boots. Cosmetic for now; revisit if it bothers testing (LEVEL-1).
+- Commit: feat(m3b): chunk system — procedural chaining, checkpoint respawn, distance score
+
 ### 2026-07-14 — Session 6 (M3a verification: gates passed)
 - Repo forensics: m3-world existed on remote but at main's tip — Session 5 patch
   was never applied (git am step missed). Patch re-applied; renderer.cpp hunk was

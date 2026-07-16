@@ -21,6 +21,11 @@
                                     // (1/3 from left = 320 px of forward sight line;
                                     // more anchor = more reaction time for hazards)
 
+// --- Level / chunks (M3b) ---
+#define LEVEL_MAX_ACTIVE    6       // active chunk window (checkpoint..prefetch)
+#define LEVEL_SOLIDS_POOL   32      // fixed physics-solid slots (6 chunks * <=4 solids + slack)
+#define LEVEL_PREFETCH_PX   160     // px of terrain kept beyond the view's right edge
+
 // --- Parallax (camera-driven since M3a; M1 auto-scroll SCROLL_SPEED removed) ---
 #define LAYER_TILE_W        512     // px; tileable width of each pre-rendered layer
 #define PAR_FAR_MULT        0.25f   // far cave wall scrolls slowest
@@ -36,7 +41,7 @@
 #define PLAYER_SPEED_PX_S    140.0f // px/s full-stick run speed; slightly faster than world scroll
 #define PLAYER_W             16     // px hitbox width
 #define PLAYER_H             24     // px hitbox height
-#define PLAYER_SPAWN_X       40.0f  // px; M2b test-harness spawn
+#define PLAYER_SPAWN_X       40.0f  // px; respawn offset past checkpoint boundary (M3b)
 #define PLAYER_SPAWN_Y       120.0f // px; spawn in the air → visible gravity on boot
 #define PLAYER_PIT_MARGIN_PX 40     // px below screen bottom before pit-death respawn
 

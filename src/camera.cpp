@@ -33,6 +33,10 @@ void beginRender(float alpha) {
   s_drawX = s_prevX + (s_x - s_prevX) * alpha;
 }
 
+void snapTo(float x) {
+  s_x = s_prevX = s_drawX = x;   // collapse interp state: teleport, don't sweep
+}
+
 float x()     { return s_x; }
 float drawX() { return s_drawX; }
 
