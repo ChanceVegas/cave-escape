@@ -3,34 +3,26 @@
 Every session: read this first, update it last. If it isn't logged here, the next session doesn't know it happened.
 
 ## Current State
-- Phase: M3b CODE DONE (2026-07-15, tag M3B-R1) — compiled in container; hw-verify pending.
-  M3a HW-VERIFIED ✅ (2026-07-14, M3A-R1)
+- Phase: M3b HW-VERIFIED ✅ (2026-07-15, tag M3B-R1)
 - Builds: yes (espressif32@6.5.0; RAM 6.7%, Flash 60.7%)
 - Runs on hardware: yes — camera ratchet follow, world-space collision, camera-driven parallax
 - Measured FPS: 25.2–25.3 locked; render avg 34.5 ms (M3a compose cost ~0 vs M2b, verified)
 - Heap: flat at 291,176 across extended run (no-alloc rule holding)
 
 ## Next Up (in order)
-1. M3b hardware verify (protocol per CLAUDE.md rule 8, xfer-tag M3B-R1):
-   endless terrain (no world's-end pit), chunk variety incl. pit60/pit80/ledge,
-   no gaps or overlaps at chunk seams, die -> respawn at last chunk boundary
-   on floor + camera snaps back with player, score (serial "dist") rises while
-   running and NEVER dips after death, fps >= 25 / render <= ~35 ms / heap flat.
-   Also run the INPUT-4 prereq experiment: flick-jump standstill vs mid-drag.
-2. INPUT-4 — fixed visible stick + position-based jump (spec below, user-approved).
-3. M3c — static spikes. (M3d creature = stretch, may slip to M4.)
-3. INPUT-4 (user-approved design, build BETWEEN M3b and M3c): fixed visible
-   stick, bottom-left — translucent base circle + thumb-offset dot, overlaid
-   on full 272 px playfield (no reserved strip; viewport unchanged, chunk
-   authoring unaffected). Jump = POSITION-based (push up past threshold),
-   edge-triggered (must recross below threshold to re-arm — no auto-rejump).
-   Replaces velocity flick. Touches OUTSIDE the stick zone do NOTHING
-   (user decision; touch-anywhere rejected — one-line revert if corner
-   occlusion annoys). Menu button deferred to M4 (no dead UI).
-   Prereq experiment during M3b testing: does flick-jump fail specifically
-   while dragging (diagonal), work from standstill? Confirms the diagnosis.
+1. M3c — static spikes (authored in chunk data, AABB overlap = death).
+   Measure render ms after; PERF gate: if headroom < ~2 ms, RLE compositor
+   (documented reserve) BEFORE M3d.
+2. M3d creature = stretch, may slip to M4.
+3. M5 (queued): visible touch-feedback dot (anchor + drag-offset overlay at
+   touch point; feedback only, NO input-logic change).
 
 ## Known Issues / Risks
+- PERF-5 (watch, data 07-15): M3B-R1 render avg 35.4 ms idle / 34.7 ms moving
+  (+~0.9 ms vs M3a idle) against 39.6 ms frame period -> ~4 ms headroom.
+  fps floor 25 still met, heap flat (recycling clean). Decision recorded: NO
+  renderer re-architecture on speculation; measure after M3c, pull RLE
+  compositor reserve only if headroom < ~2 ms or M3d overruns.
 - LEVEL-1 (open, minor): randomSeed(micros()) at boot -> near-deterministic
   chunk sequence across boots. Fine for testing; add touch-entropy at M4/M5.
 - M3A-1 (RESOLVED 2026-07-15 by M3b): checkpoint respawn replaced camera-relative respawn; chunk starts guarantee floor. Was: pit respawn = camera.x + PLAYER_SPAWN_X with NO terrain
@@ -75,6 +67,26 @@ Every session: read this first, update it last. If it isn't logged here, the nex
 - 2026-07-11: endless chunk structure; "Cave Escape" concept; single-touch drag joystick; PlatformIO+Arduino+C++; 3-doc system; PC emulator deferred.
 
 ## Session Log (newest first)
+### 2026-07-15 — Session 7 (cont. 2) — INPUT-4 gate result: not reproducible
+- User ran deliberate mid-drag flick jumps: working, no adverse behavior.
+- INPUT-4 rework CANCELLED per gate (no rework without reproducible failure).
+  Flick jump retained. Visible touch dot demoted to M5 as feedback-only
+  overlay. Original complaint likely an artifact of cramped M2b test terrain.
+- Commit: docs(input): cancel INPUT-4 rework (not reproducible), dot to M5
+
+### 2026-07-15 — Session 7 (cont.) — M3b hardware verification: PASSED
+- M3B-R1 on device: endless terrain, no seam artifacts, good chunk variety,
+  death -> checkpoint respawn correct with camera snap-back, dist monotonic
+  through death (plateau, no dip), fps 25.2-25.4, heap flat 290,544 after
+  ~460 B first-seconds settle. M3A-1 retirement confirmed on hardware.
+- PERF-5 opened: render 34.7-35.4 ms, ~4 ms headroom. RLE reserve stays the
+  contingency; no preemptive rework (user raised resource concern; resolved
+  as "measure at M3c, lever if needed").
+- INPUT-4 challenged: user reports "input was fine" in play — contradicts the
+  jump-while-moving complaint that motivated INPUT-4. Gate added: reproduce
+  (10x mid-drag flick fail count) before any input rework.
+- Commit: docs(m3b): hw verification passed, open PERF-5, gate INPUT-4 on repro
+
 ### 2026-07-15 — Session 7 (M3b: chunk system)
 - DECISION AMENDED (camera, 07-14): ratchet gets ONE exception — camera::snapTo
   (checkpoint) on respawn only. Death can leave the checkpoint behind the
