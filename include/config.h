@@ -25,6 +25,7 @@
 #define LEVEL_MAX_ACTIVE    6       // active chunk window (checkpoint..prefetch)
 #define LEVEL_SOLIDS_POOL   32      // fixed physics-solid slots (6 chunks * <=4 solids + slack)
 #define LEVEL_PREFETCH_PX   160     // px of terrain kept beyond the view's right edge
+#define LEVEL_HAZARDS_POOL  16      // fixed hazard slots (6 chunks * <=2 hazards + slack)
 
 // --- Parallax (camera-driven since M3a; M1 auto-scroll SCROLL_SPEED removed) ---
 #define LAYER_TILE_W        512     // px; tileable width of each pre-rendered layer
@@ -59,3 +60,4 @@
 #define COLOR_TRANSPARENT   0xF81F  // magenta color key for layer/sprite transparency
 #define COLOR_PLAYER_DEBUG  0xF800  // red — M2b placeholder player rect
 #define COLOR_TERRAIN_DEBUG 0x8410  // gray — M2b placeholder terrain (drawn from physics solids)
+#define COLOR_HAZARD_DEBUG  0xFFE0  // yellow — M3c spike hazards (drawn from level hazards)

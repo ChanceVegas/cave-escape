@@ -3,16 +3,21 @@
 Every session: read this first, update it last. If it isn't logged here, the next session doesn't know it happened.
 
 ## Current State
-- Phase: M3b HW-VERIFIED ✅ (2026-07-15, tag M3B-R1)
+- Phase: M3c CODE DONE (2026-07-15, tag M3C-R1) — compiled in container; hw-verify pending.
+  M3b HW-VERIFIED ✅ (2026-07-15)
 - Builds: yes (espressif32@6.5.0; RAM 6.7%, Flash 60.7%)
 - Runs on hardware: yes — camera ratchet follow, world-space collision, camera-driven parallax
 - Measured FPS: 25.2–25.3 locked; render avg 34.5 ms (M3a compose cost ~0 vs M2b, verified)
 - Heap: flat at 291,176 across extended run (no-alloc rule holding)
 
 ## Next Up (in order)
-1. M3c — static spikes (authored in chunk data, AABB overlap = death).
-   Measure render ms after; PERF gate: if headroom < ~2 ms, RLE compositor
-   (documented reserve) BEFORE M3d.
+1. M3c hardware verify (xfer-tag M3C-R1): spike chunks appear (yellow strips
+   on floor; ledge-over-spikes variant), touching spikes = death -> checkpoint
+   respawn, spikes clearable by jump (56 px strip; 80 px under-ledge span via
+   ledge route), walking under the ledge-over-spikes = death (intended: 12 px
+   gap < player height, forces the over route — VERIFY it reads as fair),
+   pits still work, dist monotonic. PERF-5 MEASUREMENT: render ms vs 34.7-35.4
+   M3b baseline; if headroom < ~2 ms -> RLE compositor before M3d.
 2. M3d creature = stretch, may slip to M4.
 3. M5 (queued): visible touch-feedback dot (anchor + drag-offset overlay at
    touch point; feedback only, NO input-logic change).
@@ -67,6 +72,19 @@ Every session: read this first, update it last. If it isn't logged here, the nex
 - 2026-07-11: endless chunk structure; "Cave Escape" concept; single-touch drag joystick; PlatformIO+Arduino+C++; 3-doc system; PC emulator deferred.
 
 ## Session Log (newest first)
+### 2026-07-15 — Session 8 (M3c: static spikes)
+- Done (M3C-R1): hazards are a parallel AABB pool (NOT physics solids — can't
+  stand on them): Chunk format + {nHazards, hazards[]}; level rebuilds
+  s_hazPool with solids, exposes level::hazards(); entities checks overlap
+  post-physics-step -> respawn; drawn hitbox-exact in COLOR_HAZARD_DEBUG
+  yellow. New chunks: CH4 spike strip (200 run-up, 56 px), CH5 ledge-over-
+  spikes (80 px strip under a 40 px ledge; under-gap 12 px = lethal, over
+  route required). Config: LEVEL_HAZARDS_POOL 16, COLOR_HAZARD_DEBUG.
+- Design note: hazard hitbox == drawn box (see-what-kills-you); 1-2 px
+  forgiveness inset is an M5 tunable if spike deaths feel unfair.
+- Compiled in container (pio run SUCCESS). Hw-verify + PERF-5 measurement next.
+- Commit: feat(m3c): static spike hazards — parallel hazard pool, 2 spike chunks, overlap death
+
 ### 2026-07-15 — Session 7 (cont. 2) — INPUT-4 gate result: not reproducible
 - User ran deliberate mid-drag flick jumps: working, no adverse behavior.
 - INPUT-4 rework CANCELLED per gate (no rework without reproducible failure).

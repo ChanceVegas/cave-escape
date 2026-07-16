@@ -75,7 +75,17 @@ void update(float dt) {
 
   // Fell into a pit: below screen bottom = death → respawn (lives arrive at M4).
   // World Y == screen Y (camera scrolls horizontally only).
-  if (s_player.body.box.y > LCD_HEIGHT + PLAYER_PIT_MARGIN_PX) respawn();
+  if (s_player.body.box.y > LCD_HEIGHT + PLAYER_PIT_MARGIN_PX) { respawn(); return; }
+
+  // Spike hazards (M3c): AABB overlap = death → respawn. Checked after the
+  // physics step so the tested position is where the player actually is.
+  int nh;
+  const physics::AABB* hz = level::hazards(nh);
+  const physics::AABB& p = s_player.body.box;
+  for (int i = 0; i < nh; ++i) {
+    if (p.x < hz[i].x + hz[i].w && p.x + p.w > hz[i].x &&
+        p.y < hz[i].y + hz[i].h && p.y + p.h > hz[i].y) { respawn(); return; }
+  }
 }
 
 void beginRender(float alpha) {
@@ -97,6 +107,16 @@ void composeBand(lgfx::LGFX_Sprite& band, int32_t bandY) {
     if (sx + (int32_t)s[i].w <= 0 || sx >= LCD_WIDTH) continue;  // off-screen
     fillRectInBand(band, bandY, sx, (int32_t)s[i].y,
                    (int32_t)s[i].w, (int32_t)s[i].h, COLOR_TERRAIN_DEBUG);
+  }
+
+  // Spike hazards (M3c): drawn box == hitbox, in warning yellow.
+  int nh;
+  const physics::AABB* hz = level::hazards(nh);
+  for (int i = 0; i < nh; ++i) {
+    int32_t zx = (int32_t)hz[i].x - camX;
+    if (zx + (int32_t)hz[i].w <= 0 || zx >= LCD_WIDTH) continue;
+    fillRectInBand(band, bandY, zx, (int32_t)hz[i].y,
+                   (int32_t)hz[i].w, (int32_t)hz[i].h, COLOR_HAZARD_DEBUG);
   }
 
   // Player: plain rect for now (sprites module arrives at M3d/M5).

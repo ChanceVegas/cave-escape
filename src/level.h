@@ -5,6 +5,7 @@
 // FLOOR_TOP_Y (safe respawn); wide pits (>=70 px) carry their own run-up
 // inside the chunk (previous chunk is random — no cross-boundary assumptions).
 #pragma once
+#include "physics.h"   // AABB
 
 namespace level {
 
@@ -16,6 +17,8 @@ bool init();               // seed RNG, lay start chunk + prefetch, register sol
 void update(float dt);
 
 float checkpointX();       // world X of last crossed chunk boundary (respawn anchor)
+const physics::AABB* hazards(int& countOut);  // static hazard boxes (M3c spikes):
+                                              // overlap = death; NOT collidable ground
 float distancePx();        // score basis: furthest camera X reached
 
 }

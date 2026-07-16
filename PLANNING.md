@@ -42,7 +42,7 @@ sections, crouch, boss, audio. Do not build these early.
 | physics | src/physics.* | gravity + axis-separated AABB vs static solids | DONE (M2b, hw-verified 2026-07-14) |
 | camera | src/camera.* | world-space camera, one-way ratchet follow, world→screen origin | M3a code done, hw-verify pending |
 | entities | src/entities.* | player, enemies, pickups | player DONE (M2b); enemies/pickups at M3 |
-| level | src/level.* | chunk library + chaining + checkpoint respawn + distance | M3b code done, hw-verify pending (ramp = M4/M5) |
+| level | src/level.* | chunks + chaining + checkpoints + distance + hazards | M3c code done, hw-verify pending (ramp = M4/M5) |
 | game_state | src/game_state.* | menu / playing / paused / game over | not started |
 | hud | src/hud.* | score, health overlay | not started |
 
